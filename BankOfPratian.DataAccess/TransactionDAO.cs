@@ -26,7 +26,7 @@ namespace BankOfPratian.DataAccess
             const string sql = @"
         SELECT t.TransID, t.TransactionType, t.accNo, t.TransDate, t.amount, t.status,
                a.name, a.pin, a.active, a.dtOfOpening, a.balance, a.privilegeType, a.accType
-        FROM TRANSACTION t
+        FROM [TRANSACTION] t
         JOIN ACCOUNT a ON t.accNo = a.accNo
         ORDER BY t.TransDate DESC";
 
