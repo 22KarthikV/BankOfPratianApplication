@@ -110,31 +110,28 @@ namespace BankOfPratian.DataAccess
 
         public void LogTransaction(Transaction transaction)
         {
-            const string sql = @"
-        INSERT INTO BANK_TRANSACTION (TransID, TransactionType, accNo, TransDate, amount, status)
-        VALUES (@TransID, @TransactionType, @accNo, @TransDate, @amount, @status)";
-
             try
             {
                 using (var connection = new SqlConnection(_connectionString))
-                using (var command = new SqlCommand(sql, connection))
                 {
-                    command.Parameters.Add("@TransID", SqlDbType.Int).Value = transaction.TransID;
-                    command.Parameters.Add("@TransactionType", SqlDbType.VarChar, 20).Value = transaction.Type.ToString();
-                    command.Parameters.Add("@accNo", SqlDbType.VarChar, 15).Value = transaction.FromAccount.AccNo;
-                    command.Parameters.Add("@TransDate", SqlDbType.DateTime).Value = transaction.TranDate;
-                    command.Parameters.Add("@amount", SqlDbType.Float).Value = transaction.Amount;
-                    command.Parameters.Add("@status", SqlDbType.VarChar, 10).Value = transaction.Status.ToString();
-
                     connection.Open();
-                    command.ExecuteNonQuery();
+
+                    using (var command = new SqlCommand("INSERT INTO TRANSACTION (TransID, TransactionType, accNo, TransDate, amount) VALUES (@TransID, @TransactionType, @accNo, @TransDate, @amount)", connection))
+                    {
+                        command.Parameters.AddWithValue("@TransID", transaction.TransID);
+                        command.Parameters.AddWithValue("@TransactionType", transaction.Type.ToString());
+                        command.Parameters.AddWithValue("@accNo", transaction.FromAccount.AccNo);
+                        command.Parameters.AddWithValue("@TransDate", transaction.TranDate);
+                        command.Parameters.AddWithValue("@amount", transaction.Amount);
+
+                        command.ExecuteNonQuery();
+                    }
                 }
-                Logger.Info($"Transaction logged in database: {transaction.TransID}");
             }
             catch (Exception ex)
             {
-                Logger.Error(ex, $"Error logging transaction in database: {transaction.TransID}");
-                throw new DatabaseOperationException("Error logging transaction", ex);
+                Logger.Error(ex, $"Failed to log transaction: Type={transaction.Type}, Account={transaction.FromAccount.AccNo}, Amount={transaction.Amount}");
+                throw new DatabaseOperationException("Failed to log transaction", ex);
             }
         }
 

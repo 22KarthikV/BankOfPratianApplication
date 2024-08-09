@@ -310,7 +310,7 @@ namespace BankOfPratian.Business
                 TranDate = DateTime.Now,
                 Amount = amount,
                 Status = TransactionStatus.CLOSED,
-                Type = type  // Use the new Type property
+                Type = type
             };
 
             try
@@ -318,10 +318,15 @@ namespace BankOfPratian.Business
                 _transactionDAO.LogTransaction(transaction);
                 Logger.Info($"Transaction logged: Type={type}, Account={account.AccNo}, Amount={amount}");
             }
-            catch (Exception ex)
+            catch (DatabaseOperationException ex)
             {
                 Logger.Error(ex, $"Failed to log transaction: Type={type}, Account={account.AccNo}, Amount={amount}");
-                throw new DatabaseOperationException("Failed to log transaction", ex);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex, $"An unexpected error occurred while logging transaction: Type={type}, Account={account.AccNo}, Amount={amount}");
+                throw new DatabaseOperationException("Failed to log transaction due to an unexpected error", ex);
             }
         }
 

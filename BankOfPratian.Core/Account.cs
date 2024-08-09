@@ -34,7 +34,7 @@ namespace BankOfPratian.Core
     {
         public SavingsAccount()
         {
-            AccNo = "SAV" + IDGenerator.GenerateID();
+            AccNo = IDGenerator.GenerateID(AccountType.SAVINGS);
         }
 
         public SavingsAccount(IDataReader reader) : this()
@@ -63,7 +63,7 @@ namespace BankOfPratian.Core
     {
         public CurrentAccount()
         {
-            AccNo = "CUR" + IDGenerator.GenerateID();
+            AccNo = IDGenerator.GenerateID(AccountType.CURRENT);
         }
 
         public CurrentAccount(IDataReader reader) : this()

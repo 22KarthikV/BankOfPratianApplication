@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using BankOfPratian.Core;
 using BankOfPratian.Core.Exceptions;
 using NLog;
+using System.Configuration;
 
 namespace BankOfPratian.DataAccess
 {
@@ -47,6 +48,30 @@ namespace BankOfPratian.DataAccess
             {
                 Logger.Error(ex, $"Error creating account in database: {account.AccNo}");
                 throw new DatabaseOperationException("Error creating account", ex);
+            }
+        }
+
+        public void Insert(IAccount account)
+        {
+            string connectionString = ConfigurationManager.ConnectionStrings["BankOfPratianDB"].ConnectionString;
+            string query = "INSERT INTO ACCOUNT (accNo, name, pin, active, dtOfOpening, balance, privilegeType, accType) " +
+                           "VALUES (@accNo, @name, @pin, @active, @dtOfOpening, @balance, @privilegeType, @accType)";
+
+            using (SqlConnection connection = new SqlConnection(connectionString))
+            {
+                SqlCommand command = new SqlCommand(query, connection);
+                command.Parameters.AddWithValue("@accNo", account.AccNo);
+                command.Parameters.AddWithValue("@name", account.Name);
+                command.Parameters.AddWithValue("@pin", account.Pin);
+                command.Parameters.AddWithValue("@active", account.Active);
+                command.Parameters.AddWithValue("@dtOfOpening", account.DateOfOpening);
+                command.Parameters.AddWithValue("@balance", account.Balance);
+                command.Parameters.AddWithValue("@privilegeType", account.PrivilegeType.ToString());
+                command.Parameters.AddWithValue("@accType", account.GetAccType());
+
+                connection.Open();
+                command.ExecuteNonQuery();
+                connection.Close();
             }
         }
 
