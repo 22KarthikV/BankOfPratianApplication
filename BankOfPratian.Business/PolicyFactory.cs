@@ -13,16 +13,10 @@ namespace BankOfPratian.Business
         private static readonly object _lock = new object();
         private readonly Dictionary<string, IPolicy> _policies;
 
-
         private PolicyFactory()
         {
             _policies = new Dictionary<string, IPolicy>();
             LoadPolicies();
-        }
-
-        public Dictionary<string, IPolicy> GetAllPolicies()
-        {
-            return new Dictionary<string, IPolicy>(_policies);
         }
 
         public static PolicyFactory Instance
@@ -68,6 +62,11 @@ namespace BankOfPratian.Business
                 return policy;
             }
             throw new InvalidPolicyTypeException($"Invalid policy type: {policyKey}");
+        }
+
+        public Dictionary<string, IPolicy> GetAllPolicies()
+        {
+            return new Dictionary<string, IPolicy>(_policies);
         }
     }
 

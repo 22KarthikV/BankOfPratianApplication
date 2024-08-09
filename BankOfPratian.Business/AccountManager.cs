@@ -9,18 +9,44 @@ namespace BankOfPratian.Business
 {
     public class AccountManager
     {
-        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+        /*private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
         private readonly AccountPrivilegeManager _privilegeManager;
         private readonly IPolicyFactory _policyFactory;
         private readonly IAccountDAO _accountDAO; // changed here 
-        private readonly ITransactionDAO _transactionDAO;
+        private readonly ITransactionDAO _transactionDAO;*/
 
-        public AccountManager(AccountPrivilegeManager privilegeManager, IAccountDAO accountDAO, ITransactionDAO transactionDAO, IPolicyFactory policyFactory = null)
+        private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
+        private readonly AccountPrivilegeManager _privilegeManager;
+        private readonly IAccountDAO _accountDAO;
+        private readonly ITransactionDAO _transactionDAO;
+        private readonly IPolicyFactory _policyFactory;
+
+        public AccountManager(
+            AccountPrivilegeManager privilegeManager,
+            IAccountDAO accountDAO,
+            ITransactionDAO transactionDAO,
+            IPolicyFactory policyFactory)
+        {
+            _privilegeManager = privilegeManager;
+            _accountDAO = accountDAO;
+            _transactionDAO = transactionDAO;
+            _policyFactory = policyFactory;
+        }
+
+        /*public AccountManager(AccountPrivilegeManager privilegeManager, IAccountDAO accountDAO, ITransactionDAO transactionDAO, IPolicyFactory policyFactory = null)
         {
             _privilegeManager = privilegeManager;
             _accountDAO = accountDAO;
             _transactionDAO = transactionDAO;
             _policyFactory = policyFactory ?? PolicyFactory.Instance; // Use instance if null
+        }*/
+
+        /*public AccountManager(AccountPrivilegeManager privilegeManager, IAccountDAO accountDAO, ITransactionDAO transactionDAO, PolicyFactory policyFactory = null)
+        {
+            _privilegeManager = privilegeManager;
+            _accountDAO = accountDAO;
+            _transactionDAO = transactionDAO;
+            _policyFactory = policyFactory ?? PolicyFactory.Instance;
         }
 
         public AccountManager(IPolicyFactory policyFactory, IAccountDAO accountDAO, ITransactionDAO transactionDAO)
@@ -28,7 +54,7 @@ namespace BankOfPratian.Business
             _policyFactory = policyFactory;
             _accountDAO = accountDAO;
             _transactionDAO = transactionDAO;
-        }
+        }*/
 
         public IAccount CreateAccount(string name, string pin, double balance, PrivilegeType privilegeType, AccountType accType)
         {
@@ -43,6 +69,8 @@ namespace BankOfPratian.Business
                 account.Pin = pin;
                 account.Balance = balance;
                 account.PrivilegeType = privilegeType;
+                account.DateOfOpening = DateTime.Now;
+                account.Active = true;
 
                 var policy = _policyFactory.CreatePolicy(accType.ToString(), privilegeType.ToString());
                 Logger.Debug($"Policy created: MinBalance={policy.GetMinBalance()}, RateOfInterest={policy.GetRateOfInterest()}");

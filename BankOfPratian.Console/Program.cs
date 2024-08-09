@@ -72,6 +72,13 @@ namespace BankOfPratian.Console
         {
             var services = new ServiceCollection();
 
+            services.AddSingleton<AccountPrivilegeManager>();
+            services.AddSingleton<IAccountDAO, AccountDAO>();
+            services.AddSingleton<ITransactionDAO, TransactionDAO>();
+            services.AddSingleton<IPolicyFactory>(provider => PolicyFactory.Instance);
+            services.AddSingleton<AccountManager>();
+            services.AddSingleton<ExternalTransferService>();
+
             // Configure settings
             services.AddSingleton<IConfiguration>(provider =>
             {
@@ -93,6 +100,8 @@ namespace BankOfPratian.Console
             services.AddSingleton<AccountPrivilegeManager>();
             services.AddSingleton<AccountManager>();
             services.AddSingleton<ExternalTransferService>();
+
+            
 
             _serviceProvider = services.BuildServiceProvider();
         }

@@ -133,8 +133,10 @@ namespace BankOfPratian.Business
                 var policyInfo = PolicyFactory.Instance.GetAllPolicies();
                 Console.WriteLine("Policy Type      | Minimum Balance | Rate Of Interest");
                 Console.WriteLine("-----------------|-----------------|------------------");
-                foreach (var (policyType, policy) in policyInfo)
+                foreach (var policyEntry in policyInfo)
                 {
+                    string policyType = policyEntry.Key;
+                    IPolicy policy = policyEntry.Value;
                     Console.WriteLine($"{policyType,-16}| {policy.GetMinBalance(),15:C2} | {policy.GetRateOfInterest(),17:P2}");
                 }
             }
