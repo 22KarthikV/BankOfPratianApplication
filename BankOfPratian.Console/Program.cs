@@ -311,6 +311,16 @@ namespace BankOfPratian.Console
                 IAccount account = _accountManager.CreateAccount(name, pin, balance, privilegeType, accountType);
                 System.Console.WriteLine($"Account created successfully. Account number: {account.AccNo}");
             }
+            catch (MinBalanceNeedsToBeMaintainedException ex)
+            {
+                System.Console.WriteLine($"Error creating account: {ex.Message}");
+                Logger.Error(ex, "Error creating account");
+            }
+            catch (UnableToOpenAccountException ex)
+            {
+                System.Console.WriteLine($"Error creating account: {ex.Message}");
+                Logger.Error(ex, "Error creating account");
+            }
             catch (Exception ex)
             {
                 System.Console.WriteLine($"Error creating account: {ex.Message}");
@@ -597,7 +607,7 @@ namespace BankOfPratian.Console
             }
             catch (Exception ex)
             {
-                System. Console.WriteLine($"An unexpected error occurred: {ex.Message}");
+                System.Console.WriteLine($"An unexpected error occurred: {ex.Message}");
             }
         }
 
