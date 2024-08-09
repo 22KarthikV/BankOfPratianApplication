@@ -83,7 +83,7 @@ namespace BankOfPratian.DataAccess
         {
             const string sql = @"
         SELECT SUM(amount) 
-        FROM TRANSACTION 
+        FROM [TRANSACTION]
         WHERE accNo = @accNo 
         AND TransactionType = 'TRANSFER' 
         AND CAST(TransDate AS DATE) = @date";
@@ -116,13 +116,14 @@ namespace BankOfPratian.DataAccess
                 {
                     connection.Open();
 
-                    using (var command = new SqlCommand("INSERT INTO TRANSACTION (TransID, TransactionType, accNo, TransDate, amount) VALUES (@TransID, @TransactionType, @accNo, @TransDate, @amount)", connection))
+                    using (var command = new SqlCommand("INSERT INTO [TRANSACTION] (TransID, TransactionType, accNo, TransDate, amount, status) VALUES (@TransID, @TransactionType, @accNo, @TransDate, @amount, @status)", connection))
                     {
                         command.Parameters.AddWithValue("@TransID", transaction.TransID);
                         command.Parameters.AddWithValue("@TransactionType", transaction.Type.ToString());
                         command.Parameters.AddWithValue("@accNo", transaction.FromAccount.AccNo);
                         command.Parameters.AddWithValue("@TransDate", transaction.TranDate);
                         command.Parameters.AddWithValue("@amount", transaction.Amount);
+                        command.Parameters.AddWithValue("@status", transaction.Status.ToString());
 
                         command.ExecuteNonQuery();
                     }
@@ -139,7 +140,7 @@ namespace BankOfPratian.DataAccess
         {
             const string sql = @"
                 SELECT TransID, TransactionType, accNo, TransDate, amount, status
-                FROM TRANSACTION
+                FROM [TRANSACTION]
                 WHERE accNo = @accNo
                 ORDER BY TransDate DESC";
 

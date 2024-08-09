@@ -61,4 +61,9 @@ namespace BankOfPratian.Core.Exceptions
     {
         public InvalidPolicyTypeException(string message) : base(message) { }
     }
+
+    public class InvalidPolicyException : ApplicationException
+    {
+        public InvalidPolicyException(string message) : base(message) { }
+    }
 }

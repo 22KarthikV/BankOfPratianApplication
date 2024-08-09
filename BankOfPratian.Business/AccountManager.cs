@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Data.SqlClient;
 using BankOfPratian.Core;
 using BankOfPratian.Core.Exceptions;
 using BankOfPratian.DataAccess;
@@ -72,7 +73,9 @@ namespace BankOfPratian.Business
                 account.DateOfOpening = DateTime.Now;
                 account.Active = true;
 
-                var policy = _policyFactory.CreatePolicy(accType.ToString(), privilegeType.ToString());
+                //var policy = _policyFactory.CreatePolicy(accType.ToString(), privilegeType.ToString());
+                IPolicy policy = PolicyFactory.Instance.CreatePolicy(accType.ToString(), privilegeType.ToString());
+                account.Policy = policy;
                 Logger.Debug($"Policy created: MinBalance={policy.GetMinBalance()}, RateOfInterest={policy.GetRateOfInterest()}");
                 account.Policy = policy;
 
@@ -99,6 +102,33 @@ namespace BankOfPratian.Business
                 throw;
             }
         }
+
+        /*public IAccount CreateAccount(string name, string pin, double balance, PrivilegeType privilegeType, AccountType accType)
+        {
+            IAccount account = AccountFactory.CreateAccount(accType);
+            account.Name = name;
+            account.Pin = pin;
+            account.Balance = balance;
+            account.PrivilegeType = privilegeType;
+            account.DateOfOpening = DateTime.Now;
+            account.Active = true;
+
+            IPolicy policy = PolicyFactory.Instance.CreatePolicy(accType.ToString(), privilegeType.ToString());
+            account.Policy = policy;
+
+            if (balance < policy.GetMinBalance())
+            {
+                throw new MinBalanceNeedsToBeMaintainedException($"Minimum balance of {policy.GetMinBalance()} needs to be maintained");
+            }
+
+            if (!account.Open())
+            {
+                throw new UnableToOpenAccountException("Unable to open account");
+            }
+
+            _accountDAO.InsertAccount(account);
+            return account;
+        }*/
 
 
         /*public bool Deposit(IAccount toAccount, double amount)
@@ -207,15 +237,19 @@ namespace BankOfPratian.Business
                 {
                     throw new InactiveAccountException($"Account {toAccount.AccNo} is inactive");
                 }
-
                 toAccount.Balance += amount;
                 _accountDAO.UpdateAccount(toAccount);
                 Logger.Info($"Deposit of {amount} to account {toAccount.AccNo}");
                 LogTransaction(toAccount, TransactionType.DEPOSIT, amount);
             }
+            catch (DatabaseOperationException ex) when (ex.InnerException is SqlException sqlEx && sqlEx.Number == 515)
+            {
+                Logger.Error(ex, $"Error depositing to account {toAccount.AccNo}: Failed to log transaction due to null value in 'status' column");
+                throw new DatabaseOperationException($"Failed to deposit to account {toAccount.AccNo} due to database constraints", ex);
+            }
             catch (Exception ex)
             {
-                Logger.Error(ex, "Error depositing to account");
+                Logger.Error(ex, $"Error depositing to account {toAccount.AccNo}");
                 throw;
             }
         }
@@ -228,17 +262,20 @@ namespace BankOfPratian.Business
                 {
                     throw new InactiveAccountException($"Account {fromAccount.AccNo} is inactive");
                 }
-
                 if (fromAccount.Pin != pin)
                 {
                     throw new InvalidPinException("Invalid PIN");
                 }
-
+                if (fromAccount.Policy == null)
+                {
+                    IPolicy policy = PolicyFactory.Instance.CreatePolicy(fromAccount.GetAccType().ToString(), fromAccount.PrivilegeType.ToString());
+                    fromAccount.Policy = policy;
+                    //throw new InvalidPolicyException($"Account {fromAccount.AccNo} has an invalid policy");
+                }
                 if (fromAccount.Balance - amount < fromAccount.Policy.GetMinBalance())
                 {
                     throw new InsufficientBalanceException("Insufficient balance");
                 }
-
                 fromAccount.Balance -= amount;
                 _accountDAO.UpdateAccount(fromAccount);
                 Logger.Info($"Withdrawal of {amount} from account {fromAccount.AccNo}");
@@ -263,6 +300,12 @@ namespace BankOfPratian.Business
                 if (transfer.FromAcc.Pin != transfer.Pin)
                 {
                     throw new InvalidPinException("Invalid PIN");
+                }
+                if (transfer.FromAcc.Policy == null)
+                {
+                    // Retrieve the policy based on the account type and privilege type
+                    IPolicy policy = PolicyFactory.Instance.CreatePolicy(transfer.FromAcc.GetAccType().ToString(), transfer.FromAcc.PrivilegeType.ToString());
+                    transfer.FromAcc.Policy = policy;
                 }
 
                 if (transfer.FromAcc.Balance - transfer.Amount < transfer.FromAcc.Policy.GetMinBalance())
@@ -309,7 +352,6 @@ namespace BankOfPratian.Business
                 FromAccount = account,
                 TranDate = DateTime.Now,
                 Amount = amount,
-                Status = TransactionStatus.CLOSED,
                 Type = type
             };
 
@@ -317,6 +359,11 @@ namespace BankOfPratian.Business
             {
                 _transactionDAO.LogTransaction(transaction);
                 Logger.Info($"Transaction logged: Type={type}, Account={account.AccNo}, Amount={amount}");
+            }
+            catch (DatabaseOperationException ex) when (ex.InnerException is SqlException sqlEx && sqlEx.Number == 515)
+            {
+                Logger.Error(ex, $"Failed to log transaction due to null value in 'status' column: Type={type}, Account={account.AccNo}, Amount={amount}");
+                throw new DatabaseOperationException("Failed to log transaction due to database constraints", ex);
             }
             catch (DatabaseOperationException ex)
             {

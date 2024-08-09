@@ -10,6 +10,11 @@ namespace BankOfPratian.Core
         public double Amount { get; set; }
         public TransactionStatus Status { get; set; }
         public TransactionType Type { get; set; }
+
+        public Transaction()
+        {
+            Status = TransactionStatus.CLOSED;
+        }
     }
 
     public class ExternalTransfer : Transaction

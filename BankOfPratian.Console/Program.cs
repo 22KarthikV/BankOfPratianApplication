@@ -12,6 +12,7 @@ using NLog.Config;
 using NLog.Targets;
 using BankOfPratian.Core.Exceptions;
 using System;
+using System.Data.SqlClient;
 
 namespace BankOfPratian.Console
 {
@@ -501,6 +502,8 @@ namespace BankOfPratian.Console
                 _accountManager.Deposit(account, amount);
 
                 System.Console.WriteLine($"Deposit successful. New balance: {account.Balance:C}");
+                System.Console.WriteLine("Press any key to continue...");
+                System.Console.ReadKey();
             }
             catch (AccountDoesNotExistException ex)
             {
@@ -513,6 +516,11 @@ namespace BankOfPratian.Console
             catch (FormatException)
             {
                 System.Console.WriteLine("Error: Invalid amount format. Please enter a valid number.");
+            }
+            catch (SqlException ex)
+            {
+                System.Console.WriteLine($"Database error occurred: {ex.Message}");
+                
             }
             catch (Exception ex)
             {
@@ -535,6 +543,9 @@ namespace BankOfPratian.Console
                 _accountManager.Withdraw(account, amount, pin);
 
                 System.Console.WriteLine($"Withdrawal successful. New balance: {account.Balance:C}");
+                System.Console.WriteLine("Press any key to continue...");
+                System.Console.ReadKey();
+
             }
             catch (AccountDoesNotExistException ex)
             {
@@ -589,6 +600,8 @@ namespace BankOfPratian.Console
                 _accountManager.TransferFunds(transfer);
 
                 System.Console.WriteLine($"Transfer successful. New balance for account {fromAccNo}: {fromAccount.Balance:C}");
+                System.Console.WriteLine("Press any key to continue...");
+                System.Console.ReadKey();
             }
             catch (AccountDoesNotExistException ex)
             {

@@ -16,7 +16,7 @@ namespace BankOfPratian.Core
         public static int GenerateID()
         {
             string connectionString = ConfigurationManager.ConnectionStrings["BankOfPratianDB"].ConnectionString;
-            string query = "SELECT ISNULL(MAX(TransID), 0) + 1 FROM TRANSACTION";
+            string query = "SELECT ISNULL(MAX(TransID), 0) + 1 FROM [TRANSACTION]";
 
             using (SqlConnection connection = new SqlConnection(connectionString))
             {
