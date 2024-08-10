@@ -32,12 +32,18 @@ namespace BankOfPratian.Core
         }
     }
 
-    public class Transfer
+    public class Transfer : Transaction
     {
         public IAccount FromAcc { get; set; }
         public IAccount ToAcc { get; set; }
         public double Amount { get; set; }
         public string Pin { get; set; }
+
+        public Transfer()
+        {
+            Type = TransactionType.TRANSFER;
+            Status = TransactionStatus.CLOSED;
+        }
     }
 
     public class ExternalAccount

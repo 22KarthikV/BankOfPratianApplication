@@ -34,8 +34,7 @@ namespace BankOfPratian.DataAccess
                 try
                 {
                     connection.Open();
-                    // Generate a new unique ID
-                    transfer.TransID = IDGenerator.GenerateTransactionID();
+                    
                     var command = new SqlCommand(
                         "INSERT INTO ExternalTransfers (TransID, FromAccountNo, ToExternalAcc, Amount, TransactionDate, Status) " +
                         "VALUES (@TransID, @FromAccountNo, @ToExternalAcc, @Amount, @TransactionDate, @Status)", connection);
@@ -130,7 +129,26 @@ namespace BankOfPratian.DataAccess
                 Status = (TransactionStatus)Enum.Parse(typeof(TransactionStatus), reader["Status"].ToString())
             };
         }
+
+        public List<ExternalTransfer> GetAllExternalTransfers()
+        {
+            var transfers = new List<ExternalTransfer>();
+            using (var connection = new SqlConnection(_connectionString))
+            {
+                connection.Open();
+                var command = new SqlCommand("SELECT * FROM ExternalTransfers", connection);
+
+                using (var reader = command.ExecuteReader())
+                {
+                    while (reader.Read())
+                    {
+                        transfers.Add(CreateExternalTransferFromReader(reader));
+                    }
+                }
+            }
+            return transfers;
+        }
     }
 
-    
+
 }

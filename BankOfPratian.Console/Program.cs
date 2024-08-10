@@ -174,7 +174,9 @@ namespace BankOfPratian.Console
                         ShowReportsMenu();
                         break;
                     case 4:
+                        System.Console.WriteLine("Thanks for Choosing Bank Of Pratain!!");
                         return false;
+                        
                     default:
                         System.Console.WriteLine("Invalid choice. Press any key to continue.");
                         System.Console.ReadKey();

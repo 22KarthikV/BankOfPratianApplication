@@ -13,5 +13,7 @@ namespace BankOfPratian.DataAccess
         ExternalTransfer GetExternalTransfer(int transID);
         List<ExternalTransfer> GetOpenExternalTransfers();
         void UpdateExternalTransfer(ExternalTransfer transfer);
+
+        List<ExternalTransfer> GetAllExternalTransfers();
     }
 }

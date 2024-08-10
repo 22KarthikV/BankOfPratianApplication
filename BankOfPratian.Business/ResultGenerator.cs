@@ -16,6 +16,7 @@ namespace BankOfPratian.Business
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
         private static readonly AccountDAO _accountDAO;
         private static readonly TransactionDAO _transactionDAO;
+        private static readonly IExternalTransferDAO _externalTransferDAO;
         //private readonly IPolicyFactory _policyFactory;
 
         static ResultGenerator()
@@ -23,6 +24,7 @@ namespace BankOfPratian.Business
             string connectionString = ConfigurationManager.ConnectionStrings["BankOfPratianDB"].ConnectionString;
             _accountDAO = new AccountDAO(connectionString);
             _transactionDAO = new TransactionDAO(connectionString);
+            _externalTransferDAO = new ExternalTransferDAO(connectionString);
         }
 
         /*public ResultGenerator(IAccountDAO accountDAO, ITransactionDAO transactionDAO, IPolicyFactory policyFactory)
@@ -157,33 +159,53 @@ namespace BankOfPratian.Business
         }
 
 
+        
+
         public static void DisplayAllTransfers()
         {
             try
             {
-                var allTransactions = _transactionDAO.GetAllTransactions();
-                var transfers = allTransactions.Where(t => t.GetType().Name == "Transfer");
-                Console.WriteLine("From       | To         | Date                 | Amount");
-                Console.WriteLine("-----------|------------|----------------------|-------");
-                foreach (var transfer in transfers)
+                var internalTransfers = _transactionDAO.GetAllTransactions()
+                    .Where(t => t.Type == TransactionType.TRANSFER)
+                    .Cast<Transfer>()
+                    .ToList();
+
+                var externalTransfers = _externalTransferDAO.GetOpenExternalTransfers();
+
+                Console.WriteLine("All Transfers");
+                Console.WriteLine("Type     | From       | To         | Date                 | Amount | Status");
+                Console.WriteLine("---------|------------|------------|----------------------|--------|-------");
+
+                foreach (var transfer in internalTransfers)
                 {
-                    Console.WriteLine($"{transfer.FromAccount.AccNo,-10}| {"To Account",-10}| {transfer.TranDate,-20:g}| {transfer.Amount,7:C2}");
+                    Console.WriteLine($"{"INTERNAL",-8}| {transfer.FromAccount.AccNo,-10}| {transfer.ToAcc.AccNo,-10}| {transfer.TranDate,-20:g}| {transfer.Amount,7:C2}| {transfer.Status}");
+                }
+
+                foreach (var transfer in externalTransfers)
+                {
+                    Console.WriteLine($"{"EXTERNAL",-8}| {transfer.FromAccountNo,-10}| {transfer.ToExternalAcc,-10}| {transfer.TranDate,-20:g}| {transfer.Amount,7:C2}| {transfer.Status}");
                 }
             }
             catch (Exception ex)
             {
                 Logger.Error(ex, "Error displaying all transfers");
+                Console.WriteLine("Error retrieving transfer transactions.");
             }
         }
+
+       
 
         public static void DisplayAllWithdrawals()
         {
             try
             {
-                var allTransactions = _transactionDAO.GetAllTransactions();
-                var withdrawals = allTransactions.Where(t => t.GetType().Name == "Withdraw");
+                var withdrawals = _transactionDAO.GetAllTransactions()
+                    .Where(t => t.Type == TransactionType.WITHDRAW)
+                    .ToList();
+
+                Console.WriteLine("All Withdrawals");
                 Console.WriteLine("From       | Date                 | Amount");
-                Console.WriteLine("-----------|----------------------|-------");
+                Console.WriteLine("-----------|----------------------|--------");
                 foreach (var withdrawal in withdrawals)
                 {
                     Console.WriteLine($"{withdrawal.FromAccount.AccNo,-10}| {withdrawal.TranDate,-20:g}| {withdrawal.Amount,7:C2}");
@@ -192,17 +214,23 @@ namespace BankOfPratian.Business
             catch (Exception ex)
             {
                 Logger.Error(ex, "Error displaying all withdrawals");
+                Console.WriteLine("Error retrieving withdrawal transactions.");
             }
         }
+
+        
 
         public static void DisplayAllDeposits()
         {
             try
             {
-                var allTransactions = _transactionDAO.GetAllTransactions();
-                var deposits = allTransactions.Where(t => t.GetType().Name == "Deposit");
+                var deposits = _transactionDAO.GetAllTransactions()
+                    .Where(t => t.Type == TransactionType.DEPOSIT)
+                    .ToList();
+
+                Console.WriteLine("All Deposits");
                 Console.WriteLine("To         | Date                 | Amount");
-                Console.WriteLine("-----------|----------------------|-------");
+                Console.WriteLine("-----------|----------------------|--------");
                 foreach (var deposit in deposits)
                 {
                     Console.WriteLine($"{deposit.FromAccount.AccNo,-10}| {deposit.TranDate,-20:g}| {deposit.Amount,7:C2}");
@@ -211,29 +239,47 @@ namespace BankOfPratian.Business
             catch (Exception ex)
             {
                 Logger.Error(ex, "Error displaying all deposits");
+                Console.WriteLine("Error retrieving deposit transactions.");
             }
         }
+
+        
 
         public static void DisplayAllTransactionsForToday()
         {
             try
             {
-                var allTransactions = _transactionDAO.GetAllTransactions();
                 var today = DateTime.Today;
-                var todayTransactions = allTransactions.Where(t => t.TranDate.Date == today);
-                Console.WriteLine("From       | To         | Date                 | Amount | Type");
-                Console.WriteLine("-----------|------------|----------------------|--------|------");
-                foreach (var transaction in todayTransactions)
+                var allTransactions = _transactionDAO.GetAllTransactions()
+                    .Where(t => t.TranDate.Date == today)
+                    .ToList();
+                var externalTransfers = _externalTransferDAO.GetOpenExternalTransfers()
+                    .Where(t => t.TranDate.Date == today)
+                    .ToList();
+
+                Console.WriteLine("All Transactions for Today");
+                Console.WriteLine("Type       | From       | To         | Date                 | Amount");
+                Console.WriteLine("-----------|------------|------------|----------------------|--------");
+
+                foreach (var transaction in allTransactions)
                 {
-                    Console.WriteLine($"{transaction.FromAccount.AccNo,-10}| {"To Account",-10}| {transaction.TranDate,-20:g}| {transaction.Amount,7:C2}| {transaction.GetType().Name,-5}");
+                    string toAccount = transaction.Type == TransactionType.TRANSFER ?
+                        (transaction as Transfer)?.ToAcc?.AccNo ?? "N/A" :
+                        "N/A";
+                    Console.WriteLine($"{transaction.Type,-10}| {transaction.FromAccount.AccNo,-10}| {toAccount,-10}| {transaction.TranDate,-20:g}| {transaction.Amount,7:C2}");
+                }
+
+                foreach (var transfer in externalTransfers)
+                {
+                    Console.WriteLine($"{"EXTERNAL",-10}| {transfer.FromAccountNo,-10}| {transfer.ToExternalAcc,-10}| {transfer.TranDate,-20:g}| {transfer.Amount,7:C2}");
                 }
             }
             catch (Exception ex)
             {
                 Logger.Error(ex, "Error displaying all transactions for today");
+                Console.WriteLine("Error retrieving transactions for today.");
             }
         }
-
         public static void DisplayAllTransactions()
         {
             try

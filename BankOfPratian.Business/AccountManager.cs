@@ -204,6 +204,9 @@ namespace BankOfPratian.Business
         {
             try
             {
+                // Generate the TransID here
+                transfer.TransID = IDGenerator.GenerateTransactionID(true);
+
                 _externalTransferService.InitiateExternalTransfer(transfer);
             }
             catch (Exception ex)
@@ -230,7 +233,8 @@ namespace BankOfPratian.Business
                 FromAccount = account,
                 TranDate = DateTime.Now,
                 Amount = amount,
-                Type = type
+                Type = type,
+                Status = TransactionStatus.CLOSED
             };
 
             try

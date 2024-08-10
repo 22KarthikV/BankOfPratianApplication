@@ -144,7 +144,7 @@ namespace BankOfPratian.Business
                     throw new DailyLimitExceededException($"Daily transfer limit of {dailyLimit} exceeded");
                 }
 
-                transfer.TransID = IDGenerator.GenerateTransactionID();
+                //transfer.TransID = IDGenerator.GenerateTransactionID();
                 transfer.TranDate = DateTime.Now;
                 transfer.Status = TransactionStatus.OPEN;
                 transfer.FromAccount = fromAccount; // Ensure FromAccount is set
