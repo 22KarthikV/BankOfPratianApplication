@@ -45,18 +45,24 @@ namespace BankOfPratian.DataAccess
                             var accType = (AccountType)Enum.Parse(typeof(AccountType), reader["accType"].ToString());
                             IAccount account = CreateAccountFromReader(reader, accType);
 
+                            //added the below variable
+                            var transactionType = (TransactionType)Enum.Parse(typeof(TransactionType), reader["TransactionType"].ToString());
                             var transaction = new Transaction
                             {
                                 TransID = (int)reader["TransID"],
                                 TranDate = (DateTime)reader["TransDate"],
                                 Amount = (double)reader["amount"],
                                 Status = (TransactionStatus)Enum.Parse(typeof(TransactionStatus), reader["status"].ToString()),
-                                FromAccount = account
+                                FromAccount = account,
+                                //added the below type variable
+                                Type = transactionType
+
                             };
                             transactions.Add(transaction);
                         }
                     }
                 }
+                Logger.Info($"Retrieved {transactions.Count} transactions in total");
                 return transactions;
             }
             catch (Exception ex)

@@ -159,9 +159,9 @@ namespace BankOfPratian.Business
         }
 
 
-        
 
-        public static void DisplayAllTransfers()
+        //OLD METHOD
+        /*public static void DisplayAllTransfers()
         {
             try
             {
@@ -191,11 +191,51 @@ namespace BankOfPratian.Business
                 Logger.Error(ex, "Error displaying all transfers");
                 Console.WriteLine("Error retrieving transfer transactions.");
             }
+        }*/
+        public static void DisplayAllTransfers()
+        {
+            try
+            {
+                var allTransactions = _transactionDAO.GetAllTransactions();
+                Logger.Info($"Retrieved {allTransactions.Count} total transactions");
+
+                var internalTransfers = allTransactions.Where(t => t.Type == TransactionType.TRANSFER).ToList();
+                Logger.Info($"Filtered {internalTransfers.Count} internal transfer transactions");
+
+                var externalTransfers = _externalTransferDAO.GetAllExternalTransfers();
+                Logger.Info($"Retrieved {externalTransfers.Count} external transfer transactions");
+
+                Console.WriteLine("All Transfers");
+                Console.WriteLine("Type     | From       | To         | Date                 | Amount | Status");
+                Console.WriteLine("---------|------------|------------|----------------------|--------|-------");
+
+                foreach (var transfer in internalTransfers)
+                {
+                    Console.WriteLine($"{"INTERNAL",-8}| {transfer.FromAccount.AccNo,-10}| {"N/A",-10}| {transfer.TranDate,-20:g}| {transfer.Amount,7:C2}| {transfer.Status}");
+                    Logger.Debug($"Displayed internal transfer: From={transfer.FromAccount.AccNo}, Date={transfer.TranDate}, Amount={transfer.Amount}");
+                }
+
+                foreach (var transfer in externalTransfers)
+                {
+                    Console.WriteLine($"{"EXTERNAL",-8}| {transfer.FromAccountNo,-10}| {transfer.ToExternalAcc,-10}| {transfer.TranDate,-20:g}| {transfer.Amount,7:C2}| {transfer.Status}");
+                    Logger.Debug($"Displayed external transfer: From={transfer.FromAccountNo}, To={transfer.ToExternalAcc}, Date={transfer.TranDate}, Amount={transfer.Amount}");
+                }
+
+                if (!internalTransfers.Any() && !externalTransfers.Any())
+                {
+                    Console.WriteLine("No transfers found.");
+                    Logger.Warn("No transfers found to display");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex, "Error displaying all transfers");
+                Console.WriteLine("Error retrieving transfer transactions.");
+            }
         }
 
-       
-
-        public static void DisplayAllWithdrawals()
+        //Old method
+        /*public static void DisplayAllWithdrawals()
         {
             try
             {
@@ -216,9 +256,40 @@ namespace BankOfPratian.Business
                 Logger.Error(ex, "Error displaying all withdrawals");
                 Console.WriteLine("Error retrieving withdrawal transactions.");
             }
+        }*/
+
+        public static void DisplayAllWithdrawals()
+        {
+            try
+            {
+                var allTransactions = _transactionDAO.GetAllTransactions();
+                Logger.Info($"Retrieved {allTransactions.Count} total transactions");
+
+                var withdrawals = allTransactions.Where(t => t.Type == TransactionType.WITHDRAW).ToList();
+                Logger.Info($"Filtered {withdrawals.Count} withdrawal transactions");
+
+                Console.WriteLine("All Withdrawals");
+                Console.WriteLine("From       | Date                 | Amount");
+                Console.WriteLine("-----------|----------------------|--------");
+                foreach (var withdrawal in withdrawals)
+                {
+                    Console.WriteLine($"{withdrawal.FromAccount.AccNo,-10}| {withdrawal.TranDate,-20:g}| {withdrawal.Amount,7:C2}");
+                    Logger.Debug($"Displayed withdrawal: Account={withdrawal.FromAccount.AccNo}, Date={withdrawal.TranDate}, Amount={withdrawal.Amount}");
+                }
+
+                if (!withdrawals.Any())
+                {
+                    Console.WriteLine("No withdrawals found.");
+                    Logger.Warn("No withdrawals found to display");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex, "Error displaying all withdrawals");
+                Console.WriteLine("Error retrieving withdrawal transactions.");
+            }
         }
 
-        
 
         public static void DisplayAllDeposits()
         {
