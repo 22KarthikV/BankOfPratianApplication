@@ -22,8 +22,7 @@ namespace BankOfPratian.Console
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
         private static AccountManager _accountManager;
         private static ExternalTransferService _externalTransferService;
-        //private static IExternalAccountDAO _externalAccountDAO;
-        //private static IAccountManager _accountManager;
+        
 
         static void Main(string[] args)
         {
@@ -136,10 +135,9 @@ namespace BankOfPratian.Console
         {
             _accountManager = _serviceProvider.GetRequiredService<AccountManager>();
             _externalTransferService = _serviceProvider.GetRequiredService<ExternalTransferService>();
-            //_externalAccountDAO = _serviceProvider.GetRequiredService<IExternalAccountDAO>();
+            
 
-            //Chaning thisn below.
-            //var externalTransferService = _serviceProvider.GetRequiredService<ExternalTransferService>();
+            
             _externalTransferService.Start();
 
             while (true)
@@ -150,8 +148,7 @@ namespace BankOfPratian.Console
                 }
             }
 
-            //Changing this 
-            //_externalTransferService.Stop();
+           
         }
 
         private static bool ShowMainMenu()
@@ -590,8 +587,7 @@ namespace BankOfPratian.Console
                     _accountManager.TransferFundsToExternal(transfer);
                     Logger.Info($"External transfer initiated: From {fromAccountNo} to {toExternalAccountNo}, Amount: {amount}");
                     System.Console.WriteLine("External transfer initiated successfully.");
-                    /*System.Console.WriteLine("Press any key to continue..");
-                    System.Console.Read();*/
+                    
                 }
                 else
                 {
@@ -698,19 +694,7 @@ namespace BankOfPratian.Console
             System.Console.ReadKey();
         }
 
-        //OLD ONE
-        /*private static void DisposeServices()
-        {
-            if (_serviceProvider == null)
-            {
-                return;
-            }
-            if (_serviceProvider is IDisposable disposable)
-            {
-                disposable.Dispose();
-            }
-        }*/
-
+        
         private static void DisposeServices()
         {
             if (_externalTransferService != null)

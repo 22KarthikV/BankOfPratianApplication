@@ -17,7 +17,7 @@ namespace BankOfPratian.Business
         private static readonly AccountDAO _accountDAO;
         private static readonly TransactionDAO _transactionDAO;
         private static readonly IExternalTransferDAO _externalTransferDAO;
-        //private readonly IPolicyFactory _policyFactory;
+        
 
         static ResultGenerator()
         {
@@ -27,12 +27,7 @@ namespace BankOfPratian.Business
             _externalTransferDAO = new ExternalTransferDAO(connectionString);
         }
 
-        /*public ResultGenerator(IAccountDAO accountDAO, ITransactionDAO transactionDAO, IPolicyFactory policyFactory)
-        {
-            _accountDAO = accountDAO;
-            _transactionDAO = transactionDAO;
-            _policyFactory = policyFactory;
-        }*/
+        
 
         public static void PrintAllLogTransactions()
         {
@@ -160,38 +155,7 @@ namespace BankOfPratian.Business
 
 
 
-        //OLD METHOD
-        /*public static void DisplayAllTransfers()
-        {
-            try
-            {
-                var internalTransfers = _transactionDAO.GetAllTransactions()
-                    .Where(t => t.Type == TransactionType.TRANSFER)
-                    .Cast<Transfer>()
-                    .ToList();
-
-                var externalTransfers = _externalTransferDAO.GetOpenExternalTransfers();
-
-                Console.WriteLine("All Transfers");
-                Console.WriteLine("Type     | From       | To         | Date                 | Amount | Status");
-                Console.WriteLine("---------|------------|------------|----------------------|--------|-------");
-
-                foreach (var transfer in internalTransfers)
-                {
-                    Console.WriteLine($"{"INTERNAL",-8}| {transfer.FromAccount.AccNo,-10}| {transfer.ToAcc.AccNo,-10}| {transfer.TranDate,-20:g}| {transfer.Amount,7:C2}| {transfer.Status}");
-                }
-
-                foreach (var transfer in externalTransfers)
-                {
-                    Console.WriteLine($"{"EXTERNAL",-8}| {transfer.FromAccountNo,-10}| {transfer.ToExternalAcc,-10}| {transfer.TranDate,-20:g}| {transfer.Amount,7:C2}| {transfer.Status}");
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.Error(ex, "Error displaying all transfers");
-                Console.WriteLine("Error retrieving transfer transactions.");
-            }
-        }*/
+        
         public static void DisplayAllTransfers()
         {
             try
@@ -234,30 +198,7 @@ namespace BankOfPratian.Business
             }
         }
 
-        //Old method
-        /*public static void DisplayAllWithdrawals()
-        {
-            try
-            {
-                var withdrawals = _transactionDAO.GetAllTransactions()
-                    .Where(t => t.Type == TransactionType.WITHDRAW)
-                    .ToList();
-
-                Console.WriteLine("All Withdrawals");
-                Console.WriteLine("From       | Date                 | Amount");
-                Console.WriteLine("-----------|----------------------|--------");
-                foreach (var withdrawal in withdrawals)
-                {
-                    Console.WriteLine($"{withdrawal.FromAccount.AccNo,-10}| {withdrawal.TranDate,-20:g}| {withdrawal.Amount,7:C2}");
-                }
-            }
-            catch (Exception ex)
-            {
-                Logger.Error(ex, "Error displaying all withdrawals");
-                Console.WriteLine("Error retrieving withdrawal transactions.");
-            }
-        }*/
-
+        
         public static void DisplayAllWithdrawals()
         {
             try
