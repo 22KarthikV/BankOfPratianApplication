@@ -116,12 +116,24 @@ namespace BankOfPratian.Business
             return null;
         }
 
-        public IExternalBankService GetExternalBankService(string bankCode)
+        //OLD ONE
+        /*public IExternalBankService GetExternalBankService(string bankCode)
         {
             if (_serviceBankPool.TryGetValue(bankCode, out var service))
             {
                 return service;
             }
+            throw new AccountDoesNotExistException($"No service found for bank code: {bankCode}");
+        }*/
+        public IExternalBankService GetExternalBankService(string bankCode)
+        {
+            Logger.Debug($"Attempting to get external bank service for bank code: {bankCode}");
+            if (_serviceBankPool.TryGetValue(bankCode, out var service))
+            {
+                Logger.Info($"External bank service found for bank code: {bankCode}");
+                return service;
+            }
+            Logger.Warn($"No service found for bank code: {bankCode}");
             throw new AccountDoesNotExistException($"No service found for bank code: {bankCode}");
         }
     }

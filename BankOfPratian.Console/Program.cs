@@ -64,6 +64,7 @@ namespace BankOfPratian.Console
             }
             finally
             {
+                DisposeServices();
                 LogManager.Shutdown();
             }
         }
@@ -136,8 +137,10 @@ namespace BankOfPratian.Console
             _accountManager = _serviceProvider.GetRequiredService<AccountManager>();
             _externalTransferService = _serviceProvider.GetRequiredService<ExternalTransferService>();
             //_externalAccountDAO = _serviceProvider.GetRequiredService<IExternalAccountDAO>();
-            var externalTransferService = _serviceProvider.GetRequiredService<ExternalTransferService>();
-            externalTransferService.Start();
+
+            //Chaning thisn below.
+            //var externalTransferService = _serviceProvider.GetRequiredService<ExternalTransferService>();
+            _externalTransferService.Start();
 
             while (true)
             {
@@ -147,7 +150,8 @@ namespace BankOfPratian.Console
                 }
             }
 
-            _externalTransferService.Stop();
+            //Changing this 
+            //_externalTransferService.Stop();
         }
 
         private static bool ShowMainMenu()
@@ -694,12 +698,26 @@ namespace BankOfPratian.Console
             System.Console.ReadKey();
         }
 
-        private static void DisposeServices()
+        //OLD ONE
+        /*private static void DisposeServices()
         {
             if (_serviceProvider == null)
             {
                 return;
             }
+            if (_serviceProvider is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
+        }*/
+
+        private static void DisposeServices()
+        {
+            if (_externalTransferService != null)
+            {
+                _externalTransferService.Stop();
+            }
+
             if (_serviceProvider is IDisposable disposable)
             {
                 disposable.Dispose();

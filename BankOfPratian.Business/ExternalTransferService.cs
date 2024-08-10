@@ -76,8 +76,10 @@ namespace BankOfPratian.Business
             }
         }
 
-        private void ProcessExternalTransfer(ExternalTransfer transfer)
+        //OLD ONE
+        /*private void ProcessExternalTransfer(ExternalTransfer transfer)
         {
+            Logger.Info($"Processing external transfer: {transfer.TransID}");
             try
             {
                 var externalBankService = _externalBankServiceFactory.GetExternalBankService(transfer.ToExternalAcc.Substring(0, 4));
@@ -102,7 +104,46 @@ namespace BankOfPratian.Business
                 transfer.Status = TransactionStatus.FAILED;
                 _externalTransferDAO.UpdateExternalTransfer(transfer);
             }
+        }*/
+
+        private void ProcessExternalTransfer(ExternalTransfer transfer)
+        {
+            Logger.Info($"Processing external transfer: {transfer.TransID}");
+            try
+            {
+                var externalBankService = _externalBankServiceFactory.GetExternalBankService(transfer.ToExternalAcc.Substring(0, 4));
+                Logger.Debug($"External bank service retrieved for bank code: {transfer.ToExternalAcc.Substring(0, 4)}");
+
+                bool depositResult = externalBankService.Deposit(transfer.ToExternalAcc, transfer.Amount);
+                Logger.Debug($"Deposit result: {depositResult}");
+
+                if (depositResult)
+                {
+                    transfer.Status = TransactionStatus.CLOSED;
+                    var fromAccount = _getAccount(transfer.FromAccountNo);
+                    Logger.Debug($"Retrieved source account: {fromAccount.AccNo}");
+
+                    _withdraw(fromAccount, transfer.Amount, transfer.FromAccPin);
+                    Logger.Debug($"Withdrawal completed from account: {fromAccount.AccNo}");
+
+                    _externalTransferDAO.UpdateExternalTransfer(transfer);
+                    Logger.Info($"External transfer completed: {transfer.TransID}");
+                }
+                else
+                {
+                    transfer.Status = TransactionStatus.FAILED;
+                    _externalTransferDAO.UpdateExternalTransfer(transfer);
+                    Logger.Warn($"External transfer failed: {transfer.TransID}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex, $"Error processing external transfer: {transfer.TransID}");
+                transfer.Status = TransactionStatus.FAILED;
+                _externalTransferDAO.UpdateExternalTransfer(transfer);
+            }
         }
+
 
         public void InitiateExternalTransfer(ExternalTransfer transfer)
         {
