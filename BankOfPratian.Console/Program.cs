@@ -22,6 +22,7 @@ namespace BankOfPratian.Console
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
         private static AccountManager _accountManager;
         private static ExternalTransferService _externalTransferService;
+        //private static IExternalAccountDAO _externalAccountDAO;
         //private static IAccountManager _accountManager;
 
         static void Main(string[] args)
@@ -67,40 +68,58 @@ namespace BankOfPratian.Console
             }
         }
 
-        
+
 
         private static void ConfigureServices()
         {
             var services = new ServiceCollection();
 
-            services.AddSingleton<AccountPrivilegeManager>();
-            services.AddSingleton<IAccountDAO, AccountDAO>();
-            services.AddSingleton<ITransactionDAO, TransactionDAO>();
-            services.AddSingleton<IPolicyFactory>(provider => PolicyFactory.Instance);
-            services.AddSingleton<AccountManager>();
-            services.AddSingleton<ExternalTransferService>();
+            // Configuration
+            var configurationManager = ConfigurationManager.OpenExeConfiguration(ConfigurationUserLevel.None);
+            services.AddSingleton<Configuration>(configurationManager);
 
-            // Configure settings
-            services.AddSingleton<IConfiguration>(provider =>
+            // Initialize PolicyFactory
+            PolicyFactory.Initialize(configurationManager);
+
+            string connectionString = ConfigurationManager.ConnectionStrings["BankOfPratianDB"].ConnectionString;
+
+            // Register DAOs
+            services.AddSingleton<ITransactionDAO>(new TransactionDAO(connectionString));
+            services.AddSingleton<IExternalTransferDAO>(new ExternalTransferDAO(connectionString));
+
+            // Register factories and managers
+            services.AddSingleton<IPolicyFactory, PolicyFactory>();
+            
+            /*services.AddSingleton<IPolicyFactory>(sp => new PolicyFactory(configurationManager));*/
+            services.AddSingleton<ExternalBankServiceFactory>(s => ExternalBankServiceFactory.Instance);
+            services.AddSingleton<AccountPrivilegeManager>();
+
+            // Register AccountDAO with PolicyFactory dependency
+            services.AddSingleton<IAccountDAO>(sp =>
+                new AccountDAO(
+                    connectionString,
+                    sp.GetRequiredService<IPolicyFactory>()
+                )
+            );
+
+            // Register AccountManager
+            services.AddSingleton<AccountManager>();
+
+            // Register ExternalTransferService with its dependencies
+            services.AddSingleton<ExternalTransferService>(sp =>
             {
-                var configurationBuilder = new ConfigurationBuilder()
-                    .SetBasePath(AppDomain.CurrentDomain.BaseDirectory)
-                    .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true);
-
-                return configurationBuilder.Build();
+                var accountManager = sp.GetRequiredService<AccountManager>();
+                var externalTransferDAO = sp.GetRequiredService<IExternalTransferDAO>();
+                var externalBankServiceFactory = sp.GetRequiredService<ExternalBankServiceFactory>();
+                return new ExternalTransferService(
+                    externalTransferDAO,
+                    externalBankServiceFactory,
+                    accountManager.GetAccount,
+                    accountManager.Withdraw,
+                    accountManager.GetDailyLimit,
+                    accountManager.GetDailyTransferAmount
+                );
             });
-
-            // Register DAO implementations
-            services.AddSingleton<IAccountDAO>(s => new AccountDAO(ConfigurationManager.ConnectionStrings["BankOfPratianDB"].ConnectionString));
-            services.AddSingleton<ITransactionDAO>(s => new TransactionDAO(ConfigurationManager.ConnectionStrings["BankOfPratianDB"].ConnectionString));
-
-            // Register PolicyFactory as a singleton
-            services.AddSingleton<IPolicyFactory>(s => PolicyFactory.Instance);
-
-            // Register other services
-            services.AddSingleton<AccountPrivilegeManager>();
-            services.AddSingleton<AccountManager>();
-            services.AddSingleton<ExternalTransferService>();
 
             
 
@@ -116,8 +135,9 @@ namespace BankOfPratian.Console
         {
             _accountManager = _serviceProvider.GetRequiredService<AccountManager>();
             _externalTransferService = _serviceProvider.GetRequiredService<ExternalTransferService>();
-
-            _externalTransferService.Start();
+            //_externalAccountDAO = _serviceProvider.GetRequiredService<IExternalAccountDAO>();
+            var externalTransferService = _serviceProvider.GetRequiredService<ExternalTransferService>();
+            externalTransferService.Start();
 
             while (true)
             {
@@ -215,7 +235,8 @@ namespace BankOfPratian.Console
                 System.Console.WriteLine("1. Deposit");
                 System.Console.WriteLine("2. Withdraw");
                 System.Console.WriteLine("3. Transfer Funds");
-                System.Console.WriteLine("4. Back to Main Menu");
+                System.Console.WriteLine("4. External Transfer");
+                System.Console.WriteLine("5. Back to Main Menu");
                 System.Console.Write("Enter your choice: ");
 
                 if (int.TryParse(System.Console.ReadLine(), out int choice))
@@ -232,7 +253,11 @@ namespace BankOfPratian.Console
                             TransferFunds();
                             break;
                         case 4:
+                            InitiateExternalTransfer();
                             return;
+                        case 5:
+                            return;
+
                         default:
                             System.Console.WriteLine("Invalid choice. Press any key to continue.");
                             System.Console.ReadKey();
@@ -255,7 +280,11 @@ namespace BankOfPratian.Console
                 System.Console.WriteLine("Reports");
                 System.Console.WriteLine("1. Display Bank Statistics");
                 System.Console.WriteLine("2. Display All Transactions");
-                System.Console.WriteLine("3. Back to Main Menu");
+                System.Console.WriteLine("3. Display All Transactions for Today");
+                System.Console.WriteLine("4. Display All Deposits");
+                System.Console.WriteLine("5. Display All Withdrawals");
+                System.Console.WriteLine("6. Display All Transfers");
+                System.Console.WriteLine("7. Back to Main Menu");
                 System.Console.Write("Enter your choice: ");
 
                 if (int.TryParse(System.Console.ReadLine(), out int choice))
@@ -269,6 +298,18 @@ namespace BankOfPratian.Console
                             DisplayAllTransactions();
                             break;
                         case 3:
+                            DisplayAllTransactionsForToday();
+                            break;
+                        case 4:
+                            DisplayAllDeposits();
+                            break;
+                        case 5:
+                            DisplayAllWithdrawals();
+                            break;
+                        case 6:
+                            DisplayAllTransfers();
+                            break;
+                        case 7:
                             return;
                         default:
                             System.Console.WriteLine("Invalid choice. Press any key to continue.");
@@ -518,6 +559,47 @@ namespace BankOfPratian.Console
             }
         }
 
+        
+        private static void InitiateExternalTransfer()
+        {
+            try
+            {
+                System.Console.Write("Enter from account number: ");
+                string fromAccountNo = System.Console.ReadLine();
+                System.Console.Write("Enter to external account number: ");
+                string toExternalAccountNo = System.Console.ReadLine();
+                System.Console.Write("Enter amount: ");
+                if (double.TryParse(System.Console.ReadLine(), out double amount))
+                {
+                    System.Console.Write("Enter PIN: ");
+                    string pin = System.Console.ReadLine();
+
+                    var transfer = new ExternalTransfer
+                    {
+                        FromAccountNo = fromAccountNo,
+                        ToExternalAcc = toExternalAccountNo,
+                        Amount = amount,
+                        FromAccPin = pin
+                    };
+                    _accountManager.TransferFundsToExternal(transfer);
+                    Logger.Info($"External transfer initiated: From {fromAccountNo} to {toExternalAccountNo}, Amount: {amount}");
+                    System.Console.WriteLine("External transfer initiated successfully.");
+                    /*System.Console.WriteLine("Press any key to continue..");
+                    System.Console.Read();*/
+                }
+                else
+                {
+                    System.Console.WriteLine("Invalid amount entered.");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex, "Error initiating external transfer");
+                System.Console.WriteLine($"Error: {ex.Message}");
+            }
+            System.Console.WriteLine("Press any key to continue...");
+            System.Console.ReadKey();
+        }
         private static void DisplayBankStatistics()
         {
             try
@@ -546,6 +628,65 @@ namespace BankOfPratian.Console
             {
                 System.Console.WriteLine($"Error displaying all transactions: {ex.Message}");
                 Logger.Error(ex, "Error displaying all transactions");
+            }
+            System.Console.WriteLine("Press any key to continue.");
+            System.Console.ReadKey();
+        }
+        private static void DisplayAllTransactionsForToday()
+        {
+            try
+            {
+                ResultGenerator.DisplayAllTransactionsForToday();
+            }
+            catch (Exception ex)
+            {
+                System.Console.WriteLine($"Error displaying transactions for today: {ex.Message}");
+                Logger.Error(ex, "Error displaying transactions for today");
+            }
+            System.Console.WriteLine("Press any key to continue.");
+            System.Console.ReadKey();
+        }
+
+        private static void DisplayAllDeposits()
+        {
+            try
+            {
+                ResultGenerator.DisplayAllDeposits();
+            }
+            catch (Exception ex)
+            {
+                System.Console.WriteLine($"Error displaying deposit transactions: {ex.Message}");
+                Logger.Error(ex, "Error displaying deposit transactions");
+            }
+            System.Console.WriteLine("Press any key to continue.");
+            System.Console.ReadKey();
+        }
+
+        private static void DisplayAllWithdrawals()
+        {
+            try
+            {
+                ResultGenerator.DisplayAllWithdrawals();
+            }
+            catch (Exception ex)
+            {
+                System.Console.WriteLine($"Error displaying withdrawal transactions: {ex.Message}");
+                Logger.Error(ex, "Error displaying withdrawal transactions");
+            }
+            System.Console.WriteLine("Press any key to continue.");
+            System.Console.ReadKey();
+        }
+
+        private static void DisplayAllTransfers()
+        {
+            try
+            {
+                ResultGenerator.DisplayAllTransfers();
+            }
+            catch (Exception ex)
+            {
+                System.Console.WriteLine($"Error displaying transfer transactions: {ex.Message}");
+                Logger.Error(ex, "Error displaying transfer transactions");
             }
             System.Console.WriteLine("Press any key to continue.");
             System.Console.ReadKey();

@@ -13,10 +13,16 @@ namespace BankOfPratian.DataAccess
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
         private readonly string _connectionString;
+        private readonly IPolicyFactory _policyFactory;
 
         public AccountDAO(string connectionString)
         {
             _connectionString = connectionString;
+        }
+        public AccountDAO(string connectionString, IPolicyFactory policyFactory)
+        {
+            _connectionString = connectionString ?? throw new ArgumentNullException(nameof(connectionString)); ;
+            _policyFactory = policyFactory ?? throw new ArgumentNullException(nameof(policyFactory));
         }
 
         public void CreateAccount(IAccount account)
@@ -108,37 +114,52 @@ namespace BankOfPratian.DataAccess
 
         public IAccount GetAccount(string accNo)
         {
-            const string sql = @"
-                SELECT accNo, name, pin, active, dtOfOpening, balance, privilegeType, accType
-                FROM ACCOUNT
-                WHERE accNo = @accNo";
-
-            try
+            using (var connection = new SqlConnection(_connectionString))
             {
-                using (var connection = new SqlConnection(_connectionString))
-                using (var command = new SqlCommand(sql, connection))
-                {
-                    command.Parameters.Add("@accNo", SqlDbType.VarChar, 15).Value = accNo;
+                connection.Open();
+                var command = new SqlCommand("SELECT * FROM Account WHERE AccNo = @AccNo", connection);
+                command.Parameters.AddWithValue("@AccNo", accNo);
 
-                    connection.Open();
-                    using (var reader = command.ExecuteReader())
+                using (var reader = command.ExecuteReader())
+                {
+                    if (reader.Read())
                     {
-                        if (reader.Read())
-                        {
-                            var accType = (AccountType)Enum.Parse(typeof(AccountType), reader["accType"].ToString());
-                            return CreateAccountFromReader(reader, accType);
-                        }
+                        return CreateAccountFromReader(reader);
                     }
                 }
-                Logger.Warn($"Account not found in database: {accNo}");
-                return null;
             }
-            catch (Exception ex)
-            {
-                Logger.Error(ex, $"Error retrieving account from database: {accNo}");
-                throw new DatabaseOperationException("Error retrieving account", ex);
-            }
+            return null;
         }
+
+
+        private IAccount CreateAccountFromReader(SqlDataReader reader)
+        {
+            if (reader == null)
+            {
+                throw new ArgumentNullException(nameof(reader));
+            }
+
+            string accType = reader["AccType"].ToString();
+            IAccount account;
+
+            switch (accType.ToUpper())
+            {
+                case "SAVINGS":
+                    account = new SavingsAccount(reader);
+                    break;
+                case "CURRENT":
+                    account = new CurrentAccount(reader);
+                    break;
+                default:
+                    throw new ArgumentException($"Unknown account type: {accType}");
+            }
+
+            // Create and assign the policy
+            account.Policy = _policyFactory.CreatePolicy(accType, account.PrivilegeType.ToString());
+
+            return account;
+        }
+
 
         public int GetTotalAccountCount()
         {

@@ -11,11 +11,12 @@ using ConfigurationManager = System.Configuration.ConfigurationManager;
 
 namespace BankOfPratian.Business
 {
-    public static class ResultGenerator
+    public class ResultGenerator
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
         private static readonly AccountDAO _accountDAO;
         private static readonly TransactionDAO _transactionDAO;
+        //private readonly IPolicyFactory _policyFactory;
 
         static ResultGenerator()
         {
@@ -23,6 +24,13 @@ namespace BankOfPratian.Business
             _accountDAO = new AccountDAO(connectionString);
             _transactionDAO = new TransactionDAO(connectionString);
         }
+
+        /*public ResultGenerator(IAccountDAO accountDAO, ITransactionDAO transactionDAO, IPolicyFactory policyFactory)
+        {
+            _accountDAO = accountDAO;
+            _transactionDAO = transactionDAO;
+            _policyFactory = policyFactory;
+        }*/
 
         public static void PrintAllLogTransactions()
         {
@@ -130,6 +138,7 @@ namespace BankOfPratian.Business
         {
             try
             {
+                var policyFactory = PolicyFactory.Instance;
                 var policyInfo = PolicyFactory.Instance.GetAllPolicies();
                 Console.WriteLine("Policy Type      | Minimum Balance | Rate Of Interest");
                 Console.WriteLine("-----------------|-----------------|------------------");
@@ -146,6 +155,7 @@ namespace BankOfPratian.Business
                 Console.WriteLine("Error retrieving policy information.");
             }
         }
+
 
         public static void DisplayAllTransfers()
         {

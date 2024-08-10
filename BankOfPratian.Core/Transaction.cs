@@ -1,5 +1,7 @@
 ﻿using System;
 
+
+
 namespace BankOfPratian.Core
 {
     public class Transaction
@@ -21,6 +23,13 @@ namespace BankOfPratian.Core
     {
         public string ToExternalAcc { get; set; }
         public string FromAccPin { get; set; }
+
+        public string FromAccountNo { get; set; }
+        public ExternalTransfer()
+        {
+            Type = TransactionType.EXTERNALTRANSFER;
+            Status = TransactionStatus.OPEN;
+        }
     }
 
     public class Transfer

@@ -2,6 +2,8 @@
 using System.Linq;
 using System.Threading;
 using BankOfPratian.Core;
+using BankOfPratian.Core.Exceptions;
+using BankOfPratian.DataAccess;
 using NLog;
 
 namespace BankOfPratian.Business
@@ -9,13 +11,31 @@ namespace BankOfPratian.Business
     public class ExternalTransferService
     {
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
-        private readonly AccountManager _accountManager;
+        private readonly IExternalTransferDAO _externalTransferDAO;
+        private readonly ExternalBankServiceFactory _externalBankServiceFactory;
         private readonly Thread _workerThread;
         private readonly CancellationTokenSource _cancellationTokenSource;
 
-        public ExternalTransferService(AccountManager accountManager)
+        // Delegates for account operations
+        private readonly Func<string, IAccount> _getAccount;
+        private readonly Action<IAccount, double, string> _withdraw;
+        private readonly Func<PrivilegeType, double> _getDailyLimit;
+        private readonly Func<string, double> _getDailyTransferAmount;
+
+        public ExternalTransferService(
+            IExternalTransferDAO externalTransferDAO,
+            ExternalBankServiceFactory externalBankServiceFactory,
+            Func<string, IAccount> getAccount,
+            Action<IAccount, double, string> withdraw,
+            Func<PrivilegeType, double> getDailyLimit,
+            Func<string, double> getDailyTransferAmount)
         {
-            _accountManager = accountManager;
+            _externalTransferDAO = externalTransferDAO;
+            _externalBankServiceFactory = externalBankServiceFactory;
+            _getAccount = getAccount;
+            _withdraw = withdraw;
+            _getDailyLimit = getDailyLimit;
+            _getDailyTransferAmount = getDailyTransferAmount;
             _cancellationTokenSource = new CancellationTokenSource();
             _workerThread = new Thread(Run);
         }
@@ -49,16 +69,10 @@ namespace BankOfPratian.Business
 
         private void ProcessOpenExternalTransfers()
         {
-            var allTransactions = TransactionLog.GetTransactions();
-            foreach (var accountTransactions in allTransactions.Values)
+            var openTransfers = _externalTransferDAO.GetOpenExternalTransfers();
+            foreach (var transfer in openTransfers)
             {
-                if (accountTransactions.TryGetValue(TransactionType.EXTERNALTRANSFER, out var externalTransfers))
-                {
-                    foreach (var transaction in externalTransfers.Cast<ExternalTransfer>().Where(t => t.Status == TransactionStatus.OPEN))
-                    {
-                        ProcessExternalTransfer(transaction);
-                    }
-                }
+                ProcessExternalTransfer(transfer);
             }
         }
 
@@ -66,18 +80,90 @@ namespace BankOfPratian.Business
         {
             try
             {
-                var externalBankService = ExternalBankServiceFactory.Instance.GetExternalBankService(transfer.ToExternalAcc.Substring(0, 4)); // Assuming first 4 digits are bank code
+                var externalBankService = _externalBankServiceFactory.GetExternalBankService(transfer.ToExternalAcc.Substring(0, 4));
                 if (externalBankService.Deposit(transfer.ToExternalAcc, transfer.Amount))
                 {
                     transfer.Status = TransactionStatus.CLOSED;
-                    _accountManager.Withdraw(transfer.FromAccount, transfer.Amount, transfer.FromAccPin);
+                    var fromAccount = _getAccount(transfer.FromAccountNo);
+                    _withdraw(fromAccount, transfer.Amount, transfer.FromAccPin);
+                    _externalTransferDAO.UpdateExternalTransfer(transfer);
                     Logger.Info($"External transfer completed: {transfer.TransID}");
+                }
+                else
+                {
+                    transfer.Status = TransactionStatus.FAILED;
+                    _externalTransferDAO.UpdateExternalTransfer(transfer);
+                    Logger.Warn($"External transfer failed: {transfer.TransID}");
                 }
             }
             catch (Exception ex)
             {
                 Logger.Error(ex, $"Error processing external transfer: {transfer.TransID}");
+                transfer.Status = TransactionStatus.FAILED;
+                _externalTransferDAO.UpdateExternalTransfer(transfer);
+            }
+        }
+
+        public void InitiateExternalTransfer(ExternalTransfer transfer)
+        {
+            try
+            {
+                if (transfer == null)
+                {
+                    throw new ArgumentNullException(nameof(transfer), "Transfer object cannot be null");
+                }
+
+                if (string.IsNullOrEmpty(transfer.FromAccountNo))
+                {
+                    throw new ArgumentException("FromAccountNo cannot be null or empty", nameof(transfer));
+                }
+
+                var fromAccount = _getAccount(transfer.FromAccountNo);
+                // The policy should now be guaranteed to exist, or an exception would have been thrown
+
+                if (!fromAccount.Active)
+                {
+                    throw new InactiveAccountException($"Account {transfer.FromAccountNo} is inactive");
+                }
+
+                if (fromAccount.Pin != transfer.FromAccPin)
+                {
+                    throw new InvalidPinException("Invalid PIN");
+                }
+
+                double minBalance = fromAccount.Policy.GetMinBalance();
+                if (fromAccount.Balance - transfer.Amount < minBalance)
+                {
+                    throw new InsufficientBalanceException($"Insufficient balance. Minimum balance requirement: {minBalance}");
+                }
+
+                double dailyLimit = _getDailyLimit(fromAccount.PrivilegeType);
+                double dailyTransferAmount = _getDailyTransferAmount(transfer.FromAccountNo);
+                if (dailyTransferAmount + transfer.Amount > dailyLimit)
+                {
+                    throw new DailyLimitExceededException($"Daily transfer limit of {dailyLimit} exceeded");
+                }
+
+                transfer.TransID = IDGenerator.GenerateTransactionID();
+                transfer.TranDate = DateTime.Now;
+                transfer.Status = TransactionStatus.OPEN;
+                transfer.FromAccount = fromAccount; // Ensure FromAccount is set
+
+                _externalTransferDAO.CreateExternalTransfer(transfer);
+                Logger.Info($"External transfer initiated: {transfer.TransID}");
+            }
+            catch (InvalidOperationException ex)
+            {
+                Logger.Error(ex, $"Policy creation failed for account {transfer?.FromAccountNo}");
+                throw new ExternalTransferException("Unable to process transfer due to account policy issues", ex);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex, $"Error initiating external transfer for account {transfer?.FromAccountNo}");
+                throw new ExternalTransferException("Error initiating external transfer", ex);
             }
         }
     }
+
+    
 }

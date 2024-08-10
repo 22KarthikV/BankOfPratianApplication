@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Configuration;
+using System.Reflection;
 using BankOfPratian.Core;
 using BankOfPratian.Core.Exceptions;
 using NLog;
@@ -43,22 +44,40 @@ namespace BankOfPratian.Business
             try
             {
                 var serviceBanksConfig = ConfigurationManager.AppSettings["ServiceBanks"];
-                var bankEntries = serviceBanksConfig.Split(';');
+                if (string.IsNullOrEmpty(serviceBanksConfig))
+                {
+                    throw new ConfigurationErrorsException("ServiceBanks configuration is missing or empty");
+                }
 
+                var bankEntries = serviceBanksConfig.Split(';');
                 foreach (var entry in bankEntries)
                 {
                     var parts = entry.Split(':');
+                    if (parts.Length != 2)
+                    {
+                        Logger.Warn($"Invalid bank entry format: {entry}");
+                        continue;
+                    }
+
                     var bankCode = parts[0];
                     var className = parts[1];
 
-                    var type = Type.GetType(className);
+                    Type type = FindType(className);
                     if (type == null)
                     {
-                        throw new TypeLoadException($"Could not load type {className}");
+                        Logger.Error($"Could not load type {className}");
+                        continue;
+                    }
+
+                    if (!typeof(IExternalBankService).IsAssignableFrom(type))
+                    {
+                        Logger.Error($"Type {className} does not implement IExternalBankService");
+                        continue;
                     }
 
                     var bankObj = (IExternalBankService)Activator.CreateInstance(type);
                     _serviceBankPool[bankCode] = bankObj;
+                    Logger.Info($"Loaded external bank service: {bankCode} - {className}");
                 }
             }
             catch (Exception ex)
@@ -66,6 +85,35 @@ namespace BankOfPratian.Business
                 Logger.Error(ex, "Error loading external bank services");
                 throw;
             }
+        }
+
+        private Type FindType(string typeName)
+        {
+            // First, try to get the type from the current assembly
+            var type = Type.GetType(typeName);
+            if (type != null) return type;
+
+            // If not found, search in all loaded assemblies
+            foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+            {
+                type = assembly.GetType(typeName);
+                if (type != null) return type;
+            }
+
+            // If still not found, try to load the assembly and get the type
+            var assemblyName = typeName.Substring(0, typeName.LastIndexOf('.'));
+            try
+            {
+                var assembly = Assembly.Load(assemblyName);
+                type = assembly.GetType(typeName);
+                if (type != null) return type;
+            }
+            catch (Exception ex)
+            {
+                Logger.Warn(ex, $"Failed to load assembly {assemblyName}");
+            }
+
+            return null;
         }
 
         public IExternalBankService GetExternalBankService(string bankCode)

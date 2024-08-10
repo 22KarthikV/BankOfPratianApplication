@@ -11,5 +11,6 @@ namespace BankOfPratian.DataAccess
         int GetTotalAccountCount();
         Dictionary<AccountType, int> GetAccountTypeCount();
         double GetTotalBankWorth();
+
     }
 }

@@ -115,6 +115,9 @@ namespace BankOfPratian.DataAccess
                 using (var connection = new SqlConnection(_connectionString))
                 {
                     connection.Open();
+                    // Generate a new unique ID
+                    transaction.TransID = IDGenerator.GenerateTransactionID();
+
 
                     using (var command = new SqlCommand("INSERT INTO [TRANSACTION] (TransID, TransactionType, accNo, TransDate, amount, status) VALUES (@TransID, @TransactionType, @accNo, @TransDate, @amount, @status)", connection))
                     {

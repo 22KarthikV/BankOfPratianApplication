@@ -26,6 +26,7 @@ namespace BankOfPratian.Core
     public enum TransactionStatus
     {
         OPEN,
-        CLOSED
+        CLOSED,
+        FAILED
     }
 }

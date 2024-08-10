@@ -66,4 +66,47 @@ namespace BankOfPratian.Core.Exceptions
     {
         public InvalidPolicyException(string message) : base(message) { }
     }
+
+
+    [Serializable]
+    public class DAOException : ApplicationException
+    {
+        public DAOException()
+        {
+        }
+
+        public DAOException(string? message) : base(message)
+        {
+        }
+
+        public DAOException(string? message, Exception? innerException) : base(message, innerException)
+        {
+        }
+
+
+    }
+
+    [Serializable]
+    public class ExternalTransferException : ApplicationException
+    {
+        public ExternalTransferException()
+        {
+        }
+
+        public ExternalTransferException(string? message) : base(message)
+        {
+        }
+
+        public ExternalTransferException(string? message, Exception? innerException) : base(message, innerException)
+        {
+        }
+
+
+    }
+
+    public class DatabaseOperationException : ApplicationException
+    {
+        public DatabaseOperationException(string message) : base(message) { }
+        public DatabaseOperationException(string message, Exception innerException) : base(message, innerException) { }
+    }
 }

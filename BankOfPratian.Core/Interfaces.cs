@@ -15,6 +15,7 @@ namespace BankOfPratian.Core
         AccountType GetAccType();
         bool Open();
         bool Close();
+
     }
 
     public interface IPolicy

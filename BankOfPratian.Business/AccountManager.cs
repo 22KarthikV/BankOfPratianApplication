@@ -10,52 +10,36 @@ namespace BankOfPratian.Business
 {
     public class AccountManager
     {
-        /*private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
-        private readonly AccountPrivilegeManager _privilegeManager;
-        private readonly IPolicyFactory _policyFactory;
-        private readonly IAccountDAO _accountDAO; // changed here 
-        private readonly ITransactionDAO _transactionDAO;*/
-
         private static readonly Logger Logger = LogManager.GetCurrentClassLogger();
         private readonly AccountPrivilegeManager _privilegeManager;
         private readonly IAccountDAO _accountDAO;
         private readonly ITransactionDAO _transactionDAO;
         private readonly IPolicyFactory _policyFactory;
+        private readonly ExternalTransferService _externalTransferService;
 
         public AccountManager(
             AccountPrivilegeManager privilegeManager,
             IAccountDAO accountDAO,
             ITransactionDAO transactionDAO,
+            IExternalTransferDAO externalTransferDAO,
+            ExternalBankServiceFactory externalBankServiceFactory,
             IPolicyFactory policyFactory)
         {
             _privilegeManager = privilegeManager;
             _accountDAO = accountDAO;
             _transactionDAO = transactionDAO;
             _policyFactory = policyFactory;
+
+            _externalTransferService = new ExternalTransferService(
+                externalTransferDAO,
+                externalBankServiceFactory,
+                GetAccount,
+                Withdraw,
+                GetDailyLimit,
+                GetDailyTransferAmount
+            );
         }
 
-        /*public AccountManager(AccountPrivilegeManager privilegeManager, IAccountDAO accountDAO, ITransactionDAO transactionDAO, IPolicyFactory policyFactory = null)
-        {
-            _privilegeManager = privilegeManager;
-            _accountDAO = accountDAO;
-            _transactionDAO = transactionDAO;
-            _policyFactory = policyFactory ?? PolicyFactory.Instance; // Use instance if null
-        }*/
-
-        /*public AccountManager(AccountPrivilegeManager privilegeManager, IAccountDAO accountDAO, ITransactionDAO transactionDAO, PolicyFactory policyFactory = null)
-        {
-            _privilegeManager = privilegeManager;
-            _accountDAO = accountDAO;
-            _transactionDAO = transactionDAO;
-            _policyFactory = policyFactory ?? PolicyFactory.Instance;
-        }
-
-        public AccountManager(IPolicyFactory policyFactory, IAccountDAO accountDAO, ITransactionDAO transactionDAO)
-        {
-            _policyFactory = policyFactory;
-            _accountDAO = accountDAO;
-            _transactionDAO = transactionDAO;
-        }*/
 
         public IAccount CreateAccount(string name, string pin, double balance, PrivilegeType privilegeType, AccountType accType)
         {
@@ -73,11 +57,9 @@ namespace BankOfPratian.Business
                 account.DateOfOpening = DateTime.Now;
                 account.Active = true;
 
-                //var policy = _policyFactory.CreatePolicy(accType.ToString(), privilegeType.ToString());
-                IPolicy policy = PolicyFactory.Instance.CreatePolicy(accType.ToString(), privilegeType.ToString());
+                IPolicy policy = _policyFactory.CreatePolicy(accType.ToString(), privilegeType.ToString());
                 account.Policy = policy;
                 Logger.Debug($"Policy created: MinBalance={policy.GetMinBalance()}, RateOfInterest={policy.GetRateOfInterest()}");
-                account.Policy = policy;
 
                 if (balance < policy.GetMinBalance())
                 {
@@ -103,131 +85,7 @@ namespace BankOfPratian.Business
             }
         }
 
-        /*public IAccount CreateAccount(string name, string pin, double balance, PrivilegeType privilegeType, AccountType accType)
-        {
-            IAccount account = AccountFactory.CreateAccount(accType);
-            account.Name = name;
-            account.Pin = pin;
-            account.Balance = balance;
-            account.PrivilegeType = privilegeType;
-            account.DateOfOpening = DateTime.Now;
-            account.Active = true;
 
-            IPolicy policy = PolicyFactory.Instance.CreatePolicy(accType.ToString(), privilegeType.ToString());
-            account.Policy = policy;
-
-            if (balance < policy.GetMinBalance())
-            {
-                throw new MinBalanceNeedsToBeMaintainedException($"Minimum balance of {policy.GetMinBalance()} needs to be maintained");
-            }
-
-            if (!account.Open())
-            {
-                throw new UnableToOpenAccountException("Unable to open account");
-            }
-
-            _accountDAO.InsertAccount(account);
-            return account;
-        }*/
-
-
-        /*public bool Deposit(IAccount toAccount, double amount)
-        {
-            try
-            {
-                if (!toAccount.Active)
-                {
-                    throw new InactiveAccountException($"Account {toAccount.AccNo} is inactive");
-                }
-
-                toAccount.Balance += amount;
-                _accountDAO.UpdateAccount(toAccount);
-                Logger.Info($"Deposit of {amount} to account {toAccount.AccNo}");
-                LogTransaction(toAccount, TransactionType.DEPOSIT, amount);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                Logger.Error(ex, "Error depositing to account");
-                throw;
-            }
-        }
-
-        public bool Withdraw(IAccount fromAccount, double amount, string pin)
-        {
-            try
-            {
-                if (!fromAccount.Active)
-                {
-                    throw new InactiveAccountException($"Account {fromAccount.AccNo} is inactive");
-                }
-
-                if (fromAccount.Pin != pin)
-                {
-                    throw new InvalidPinException("Invalid PIN");
-                }
-
-                if (fromAccount.Balance - amount < fromAccount.Policy.GetMinBalance())
-                {
-                    throw new InsufficientBalanceException("Insufficient balance");
-                }
-
-                fromAccount.Balance -= amount;
-                _accountDAO.UpdateAccount(fromAccount);
-                Logger.Info($"Withdrawal of {amount} from account {fromAccount.AccNo}");
-                LogTransaction(fromAccount, TransactionType.WITHDRAW, amount);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                Logger.Error(ex, "Error withdrawing from account");
-                throw;
-            }
-        }
-
-        public bool TransferFunds(Transfer transfer)
-        {
-            try
-            {
-                if (!transfer.FromAcc.Active || !transfer.ToAcc.Active)
-                {
-                    throw new InactiveAccountException("One or both accounts are inactive");
-                }
-
-                if (transfer.FromAcc.Pin != transfer.Pin)
-                {
-                    throw new InvalidPinException("Invalid PIN");
-                }
-
-                if (transfer.FromAcc.Balance - transfer.Amount < transfer.FromAcc.Policy.GetMinBalance())
-                {
-                    throw new InsufficientBalanceException("Insufficient balance");
-                }
-
-                double dailyLimit = _privilegeManager.GetDailyLimit(transfer.FromAcc.PrivilegeType);
-                double dailyTransferAmount = GetDailyTransferAmount(transfer.FromAcc.AccNo);
-
-                if (dailyTransferAmount + transfer.Amount > dailyLimit)
-                {
-                    throw new DailyLimitExceededException($"Daily transfer limit of {dailyLimit} exceeded");
-                }
-
-                transfer.FromAcc.Balance -= transfer.Amount;
-                transfer.ToAcc.Balance += transfer.Amount;
-
-                _accountDAO.UpdateAccount(transfer.FromAcc);
-                _accountDAO.UpdateAccount(transfer.ToAcc);
-
-                Logger.Info($"Transfer of {transfer.Amount} from account {transfer.FromAcc.AccNo} to {transfer.ToAcc.AccNo}");
-                LogTransaction(transfer.FromAcc, TransactionType.TRANSFER, transfer.Amount);
-                return true;
-            }
-            catch (Exception ex)
-            {
-                Logger.Error(ex, "Error transferring funds");
-                throw;
-            }
-        }*/
 
         public void Deposit(IAccount toAccount, double amount)
         {
@@ -268,9 +126,8 @@ namespace BankOfPratian.Business
                 }
                 if (fromAccount.Policy == null)
                 {
-                    IPolicy policy = PolicyFactory.Instance.CreatePolicy(fromAccount.GetAccType().ToString(), fromAccount.PrivilegeType.ToString());
+                    IPolicy policy = _policyFactory.CreatePolicy(fromAccount.GetAccType().ToString(), fromAccount.PrivilegeType.ToString());
                     fromAccount.Policy = policy;
-                    //throw new InvalidPolicyException($"Account {fromAccount.AccNo} has an invalid policy");
                 }
                 if (fromAccount.Balance - amount < fromAccount.Policy.GetMinBalance())
                 {
@@ -303,8 +160,7 @@ namespace BankOfPratian.Business
                 }
                 if (transfer.FromAcc.Policy == null)
                 {
-                    // Retrieve the policy based on the account type and privilege type
-                    IPolicy policy = PolicyFactory.Instance.CreatePolicy(transfer.FromAcc.GetAccType().ToString(), transfer.FromAcc.PrivilegeType.ToString());
+                    IPolicy policy = _policyFactory.CreatePolicy(transfer.FromAcc.GetAccType().ToString(), transfer.FromAcc.PrivilegeType.ToString());
                     transfer.FromAcc.Policy = policy;
                 }
 
@@ -337,18 +193,40 @@ namespace BankOfPratian.Business
             }
         }
 
-        private double GetDailyTransferAmount(string accNo)
+        public double GetDailyTransferAmount(string accNo)
         {
             // Implement this method to retrieve the total transfer amount for the current day
             // You can use _transactionDAO to query the database for this information
             return _transactionDAO.GetDailyTransferAmount(accNo, DateTime.Today);
         }
 
+        public void TransferFundsToExternal(ExternalTransfer transfer)
+        {
+            try
+            {
+                _externalTransferService.InitiateExternalTransfer(transfer);
+            }
+            catch (Exception ex)
+            {
+                Logger.Error(ex, "Error transferring funds to external account");
+                throw;
+            }
+        }
+
+        public double GetDailyLimit(PrivilegeType privilegeType)
+        {
+            return _privilegeManager.GetDailyLimit(privilegeType);
+        }
+
+        
+
+
+
         private void LogTransaction(IAccount account, TransactionType type, double amount)
         {
             var transaction = new Transaction
             {
-                TransID = IDGenerator.GenerateID(),
+                TransID = IDGenerator.GenerateTransactionID(),
                 FromAccount = account,
                 TranDate = DateTime.Now,
                 Amount = amount,
@@ -379,20 +257,35 @@ namespace BankOfPratian.Business
 
         public IAccount GetAccount(string accNo)
         {
-            try
+            if (string.IsNullOrEmpty(accNo))
             {
-                var account = _accountDAO.GetAccount(accNo);
-                if (account == null)
+                throw new ArgumentNullException(nameof(accNo), "Account number cannot be null or empty");
+            }
+
+            var account = _accountDAO.GetAccount(accNo);
+            if (account == null)
+            {
+                Logger.Warn($"Account not found: {accNo}");
+                throw new AccountDoesNotExistException($"Account {accNo} does not exist");
+            }
+
+            if (account.Policy == null)
+            {
+                Logger.Warn($"Policy is null for account {accNo}. Attempting to create a new policy.");
+                try
                 {
-                    throw new AccountDoesNotExistException($"Account {accNo} does not exist");
+                    account.Policy = _policyFactory.CreatePolicy(account.GetAccType().ToString(), account.PrivilegeType.ToString());
+                    _accountDAO.UpdateAccount(account); // Save the updated account with the new policy
+                    Logger.Info($"New policy created and assigned to account {accNo}");
                 }
-                return account;
+                catch (Exception ex)
+                {
+                    Logger.Error(ex, $"Failed to create policy for account {accNo}");
+                    throw new InvalidOperationException($"Failed to create policy for account {accNo}", ex);
+                }
             }
-            catch (Exception ex)
-            {
-                Logger.Error(ex, $"Error retrieving account: {accNo}");
-                throw;
-            }
+
+            return account;
         }
     }
 }
