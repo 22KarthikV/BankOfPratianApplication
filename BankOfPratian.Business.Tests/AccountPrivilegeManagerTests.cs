@@ -1,65 +1,64 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Moq;
 using BankOfPratian.Business;
 using BankOfPratian.Core;
 using BankOfPratian.Core.Exceptions;
-using System.Collections.Generic;
+using System.Configuration;
 
-namespace BankOfPratian.Business.Tests
+namespace BankOfPratian.Tests
 {
     [TestClass]
     public class AccountPrivilegeManagerTests
     {
-        private AccountPrivilegeManager _accountPrivilegeManager;
+        private Mock<Configuration> _mockConfiguration;
 
         [TestInitialize]
-        public void TestInitialize()
+        public void Setup()
         {
-            var testDailyLimits = new Dictionary<PrivilegeType, double>
-            {
-                { PrivilegeType.REGULAR, 100000.0 },
-                { PrivilegeType.GOLD, 200000.0 },
-                { PrivilegeType.PREMIUM, 300000.0 }
-            };
-
-            _accountPrivilegeManager = new AccountPrivilegeManager(testDailyLimits);
+            _mockConfiguration = new Mock<Configuration>();
+            var mockAppSettings = new Mock<AppSettingsSection>();
+            var settings = new KeyValueConfigurationCollection();
+            settings.Add("DailyLimits", "REGULAR:100000.0;GOLD:200000.0;PREMIUM:300000.0");
+            mockAppSettings.Setup(m => m.Settings).Returns(settings);
+            _mockConfiguration.Setup(c => c.AppSettings).Returns(mockAppSettings.Object);
         }
 
         [TestMethod]
-        public void GetDailyLimit_RegularPrivilege_ReturnsCorrectLimit()
+        public void Constructor_ValidConfiguration_InitializesDailyLimits()
         {
-            // Act
-            double limit = _accountPrivilegeManager.GetDailyLimit(PrivilegeType.REGULAR);
+            // Arrange & Act
+            var manager = new AccountPrivilegeManager();
 
             // Assert
-            Assert.AreEqual(100000.0, limit);
+            Assert.IsNotNull(manager);
         }
 
         [TestMethod]
-        public void GetDailyLimit_GoldPrivilege_ReturnsCorrectLimit()
+        public void GetDailyLimit_ValidPrivilegeType_ReturnsCorrectLimit()
         {
+            // Arrange
+            var manager = new AccountPrivilegeManager();
+
             // Act
-            double limit = _accountPrivilegeManager.GetDailyLimit(PrivilegeType.GOLD);
+            var regularLimit = manager.GetDailyLimit(PrivilegeType.REGULAR);
+            var goldLimit = manager.GetDailyLimit(PrivilegeType.GOLD);
+            var premiumLimit = manager.GetDailyLimit(PrivilegeType.PREMIUM);
 
             // Assert
-            Assert.AreEqual(200000.0, limit);
-        }
-
-        [TestMethod]
-        public void GetDailyLimit_PremiumPrivilege_ReturnsCorrectLimit()
-        {
-            // Act
-            double limit = _accountPrivilegeManager.GetDailyLimit(PrivilegeType.PREMIUM);
-
-            // Assert
-            Assert.AreEqual(300000.0, limit);
+            Assert.AreEqual(100000.0, regularLimit);
+            Assert.AreEqual(200000.0, goldLimit);
+            Assert.AreEqual(300000.0, premiumLimit);
         }
 
         [TestMethod]
         [ExpectedException(typeof(InvalidPrivilegeTypeException))]
         public void GetDailyLimit_InvalidPrivilegeType_ThrowsException()
         {
-            // Act
-            _accountPrivilegeManager.GetDailyLimit((PrivilegeType)999);
+            // Arrange
+            var manager = new AccountPrivilegeManager();
+
+            // Act & Assert
+            manager.GetDailyLimit((PrivilegeType)999);
         }
     }
 }

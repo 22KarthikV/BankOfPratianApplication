@@ -78,7 +78,7 @@ namespace BankOfPratian.Business
 
       
 
-        private void ProcessExternalTransfer(ExternalTransfer transfer)
+        public void ProcessExternalTransfer(ExternalTransfer transfer)
         {
             Logger.Info($"Processing external transfer: {transfer.TransID}");
             try

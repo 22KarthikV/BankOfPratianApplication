@@ -1,35 +1,53 @@
 ﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Moq;
 using BankOfPratian.Business;
 using BankOfPratian.Core;
 using BankOfPratian.Core.Exceptions;
 using System.Configuration;
 
-namespace BankOfPratian.Business.Tests
+namespace BankOfPratian.Tests
 {
     [TestClass]
     public class PolicyFactoryTests
     {
+        private Mock<Configuration> _mockConfiguration;
+
         [TestInitialize]
-        public void TestInitialize()
+        public void Setup()
         {
-            // Set up the configuration for testing
-            ConfigurationManager.AppSettings["Policies"] = "SAVINGS-REGULAR:5000.0,4.0;CURRENT-PREMIUM:300000.0,2.75";
+            _mockConfiguration = new Mock<Configuration>();
+            var mockAppSettings = new Mock<AppSettingsSection>();
+            var settings = new KeyValueConfigurationCollection();
+            settings.Add("Policies", "SAVINGS-REGULAR:5000.0,0.04;SAVINGS-GOLD:25000.0,0.0425;CURRENT-REGULAR:25000.0,0.02");
+            mockAppSettings.Setup(m => m.Settings).Returns(settings);
+            _mockConfiguration.Setup(c => c.AppSettings).Returns(mockAppSettings.Object);
+        }
+
+        [TestMethod]
+        public void Initialize_ValidConfiguration_CreatesInstance()
+        {
+            // Act
+            PolicyFactory.Initialize(_mockConfiguration.Object);
+            var instance = PolicyFactory.Instance;
+
+            // Assert
+            Assert.IsNotNull(instance);
         }
 
         [TestMethod]
         public void CreatePolicy_ValidInput_ReturnsCorrectPolicy()
         {
             // Arrange
-            string accType = "SAVINGS";
-            string privilege = "REGULAR";
+            PolicyFactory.Initialize(_mockConfiguration.Object);
+            var factory = PolicyFactory.Instance;
 
             // Act
-            IPolicy policy = PolicyFactory.Instance.CreatePolicy(accType, privilege);
+            var policy = factory.CreatePolicy("SAVINGS", "REGULAR");
 
             // Assert
             Assert.IsNotNull(policy);
             Assert.AreEqual(5000.0, policy.GetMinBalance());
-            Assert.AreEqual(4.0, policy.GetRateOfInterest());
+            Assert.AreEqual(0.04, policy.GetRateOfInterest());
         }
 
         [TestMethod]
@@ -37,11 +55,28 @@ namespace BankOfPratian.Business.Tests
         public void CreatePolicy_InvalidInput_ThrowsException()
         {
             // Arrange
-            string accType = "INVALID";
-            string privilege = "INVALID";
+            PolicyFactory.Initialize(_mockConfiguration.Object);
+            var factory = PolicyFactory.Instance;
+
+            // Act & Assert
+            factory.CreatePolicy("INVALID", "TYPE");
+        }
+
+        [TestMethod]
+        public void GetAllPolicies_ReturnsAllConfiguredPolicies()
+        {
+            // Arrange
+            PolicyFactory.Initialize(_mockConfiguration.Object);
+            var factory = PolicyFactory.Instance;
 
             // Act
-            PolicyFactory.Instance.CreatePolicy(accType, privilege);
+            var policies = factory.GetAllPolicies();
+
+            // Assert
+            Assert.AreEqual(3, policies.Count);
+            Assert.IsTrue(policies.ContainsKey("SAVINGS-REGULAR"));
+            Assert.IsTrue(policies.ContainsKey("SAVINGS-GOLD"));
+            Assert.IsTrue(policies.ContainsKey("CURRENT-REGULAR"));
         }
     }
 }
